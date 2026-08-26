@@ -1,0 +1,5 @@
+export const FREE_TIER_LIMITS = {
+  MAX_PROJECTS: 5,
+  MAX_MONITORS_PER_PROJECT: 10,
+} as const
+
