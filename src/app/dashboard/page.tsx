@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { signout } from '@/app/auth/signout/actions'
 import { Activity, LogOut } from 'lucide-react'
 import DashboardContent from '@/components/dashboard/DashboardContent'
-import { Project, Monitor } from '@/types/database'
+import { Check, Incident, Monitor, Project } from '@/types/database'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -36,6 +36,31 @@ export default async function DashboardPage() {
       .order('created_at', { ascending: false })
 
     monitors = monitorsData || []
+  }
+
+  const monitorIds = monitors.map((monitor) => monitor.id)
+  let checks: Check[] = []
+  let incidents: Incident[] = []
+
+  if (monitorIds.length > 0) {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const [{ data: checksData }, { data: incidentsData }] = await Promise.all([
+      supabase
+        .from('checks')
+        .select('*')
+        .in('monitor_id', monitorIds)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('incidents')
+        .select('*')
+        .in('monitor_id', monitorIds)
+        .order('start_time', { ascending: false })
+        .limit(8),
+    ])
+
+    checks = checksData || []
+    incidents = incidentsData || []
   }
 
   return (
@@ -76,6 +101,8 @@ export default async function DashboardPage() {
         <DashboardContent
           initialProjects={projects}
           initialMonitors={monitors}
+          initialChecks={checks}
+          initialIncidents={incidents}
           userEmail={user.email || ''}
         />
       </main>

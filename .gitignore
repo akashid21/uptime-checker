@@ -3,3 +3,19 @@ node_modules
 .env.local
 uptime-tracker-prd.md
 ticket.md
+supabase/.temp/
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.local.example
+
+# macOS
+.DS_Store
+
+# Logs and test output
+*.log
+coverage/
