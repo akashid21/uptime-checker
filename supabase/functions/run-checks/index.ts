@@ -14,6 +14,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { sendIncidentNotification, type NotificationEvent } from '../_shared/notifications.ts'
 import type { Monitor, CheckResult, CheckOutcome } from './types.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -31,6 +32,89 @@ const BATCH_SIZE       = 20       // max concurrent checks per invocation
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function sendTransitionEmail(
+  supabase: ReturnType<typeof createClient>,
+  incidentId: string,
+  event: NotificationEvent,
+  monitor: Monitor,
+  details: { statusCode: number | null; startedAt: string; endedAt?: string | null; durationMinutes?: number | null; errorMessage?: string | null },
+  errors: string[],
+): Promise<void> {
+  const provider = Deno.env.get('EMAIL_PROVIDER')?.trim().toLowerCase() || 'brevo'
+  const { data: existingDelivery, error: lookupError } = await supabase
+    .from('notification_deliveries')
+    .select('id, status')
+    .eq('incident_id', incidentId)
+    .eq('event_type', event)
+    .maybeSingle()
+
+  if (lookupError) {
+    errors.push(`Notification lookup failed for ${monitor.name}: ${lookupError.message}`)
+    return
+  }
+  if (existingDelivery?.status === 'sent') return
+
+  let deliveryId = existingDelivery?.id
+  if (deliveryId) {
+    const { error } = await supabase
+      .from('notification_deliveries')
+      .update({ status: 'pending', error_message: null, provider })
+      .eq('id', deliveryId)
+    if (error) {
+      errors.push(`Notification claim failed for ${monitor.name}: ${error.message}`)
+      return
+    }
+  } else {
+    const { data: delivery, error } = await supabase
+      .from('notification_deliveries')
+      .insert({ incident_id: incidentId, event_type: event, provider, status: 'pending' })
+      .select('id')
+      .single()
+    if (error) {
+      // A concurrent worker may have claimed the unique delivery record.
+      if (error.code === '23505') return
+      errors.push(`Notification claim failed for ${monitor.name}: ${error.message}`)
+      return
+    }
+    deliveryId = delivery.id
+  }
+
+  const ownerId = monitor.projects?.owner_id
+  if (!ownerId) {
+    errors.push(`Notification skipped for ${monitor.name}: project owner unavailable`)
+    await supabase.from('notification_deliveries').update({ status: 'failed', error_message: 'Project owner unavailable' }).eq('id', deliveryId)
+    return
+  }
+
+  const { data: owner, error: ownerError } = await supabase.auth.admin.getUserById(ownerId)
+  const recipientEmail = owner?.user?.email
+  if (ownerError || !recipientEmail) {
+    const message = ownerError?.message || 'Account owner has no email address'
+    errors.push(`Notification skipped for ${monitor.name}: ${message}`)
+    await supabase.from('notification_deliveries').update({ status: 'failed', error_message: message }).eq('id', deliveryId)
+    return
+  }
+
+  try {
+    const result = await sendIncidentNotification({
+      event,
+      recipient: { email: recipientEmail, name: owner.user.user_metadata?.full_name || null },
+      monitorName: monitor.name,
+      monitorUrl: monitor.url,
+      statusCode: details.statusCode,
+      startedAt: details.startedAt,
+      endedAt: details.endedAt,
+      durationMinutes: details.durationMinutes,
+      errorMessage: details.errorMessage,
+    })
+    await supabase.from('notification_deliveries').update({ status: 'sent', provider_message_id: result.messageId || null, sent_at: new Date().toISOString(), error_message: null }).eq('id', deliveryId)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    errors.push(`Notification failed for ${monitor.name}: ${message}`)
+    await supabase.from('notification_deliveries').update({ status: 'failed', error_message: message }).eq('id', deliveryId)
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -127,7 +211,7 @@ Deno.serve(async (req: Request) => {
   // ── 1. Fetch due monitors ──────────────────────────────────────────────────
   const { data: dueMonitors, error: fetchError } = await supabase
     .from('monitors')
-    .select('*')
+    .select('*, projects!inner(owner_id)')
     .eq('is_active', true)
     .lte('next_check_at', runAt)
     .limit(BATCH_SIZE)
@@ -214,15 +298,20 @@ Deno.serve(async (req: Request) => {
 
     if (!is_up && previousStatus !== 'down') {
       // ── Monitor just went DOWN → open a new incident ─────────────────────
-      const { error: incidentError } = await supabase.from('incidents').insert({
+      const { data: incident, error: incidentError } = await supabase.from('incidents').insert({
         monitor_id: monitor.id,
         start_time: new Date().toISOString(),
-      })
+      }).select('id, start_time').single()
 
       if (incidentError) {
         incidentErrors.push(`Failed to open incident for ${monitor.name}: ${incidentError.message}`)
       } else {
         newDownMonitors.push(monitor.name)
+        await sendTransitionEmail(supabase, incident.id, 'incident_started', monitor, {
+          statusCode: outcome.status_code,
+          startedAt: incident.start_time,
+          errorMessage: outcome.error_message,
+        }, incidentErrors)
         console.log(`⚠ INCIDENT OPENED: ${monitor.name} (${monitor.url}) went DOWN`)
       }
     } else if (is_up && previousStatus === 'down') {
@@ -254,6 +343,12 @@ Deno.serve(async (req: Request) => {
           incidentErrors.push(`Failed to close incident for ${monitor.name}: ${closeError.message}`)
         } else {
           recoveredMonitors.push(monitor.name)
+          await sendTransitionEmail(supabase, openIncident.id, 'incident_resolved', monitor, {
+            statusCode: outcome.status_code,
+            startedAt: openIncident.start_time,
+            endedAt: new Date(endTime).toISOString(),
+            durationMinutes: durationMin,
+          }, incidentErrors)
           console.log(`✓ INCIDENT RESOLVED: ${monitor.name} recovered after ${durationMin}m`)
         }
       }

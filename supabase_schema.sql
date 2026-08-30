@@ -107,8 +107,24 @@ create table public.audit_logs (
 alter table public.audit_logs enable row level security;
 -- Only viewable by system for MVP. Service role inserts bypass RLS.
 
+-- 8. Notification delivery ledger (prevents duplicate transition emails)
+create table public.notification_deliveries (
+  id uuid default uuid_generate_v4() primary key,
+  incident_id uuid references public.incidents(id) on delete cascade not null,
+  event_type text not null check (event_type in ('incident_started', 'incident_resolved')),
+  status text not null default 'pending' check (status in ('pending', 'sent', 'failed')),
+  provider text not null,
+  provider_message_id text,
+  error_message text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  sent_at timestamp with time zone,
+  unique (incident_id, event_type)
+);
 
--- 8. Helper: Trigger to auto-update 'updated_at' columns
+alter table public.notification_deliveries enable row level security;
+
+
+-- 9. Helper: Trigger to auto-update 'updated_at' columns
 create or replace function public.handle_updated_at()
 returns trigger as $$
 begin

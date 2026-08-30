@@ -10,6 +10,7 @@ export interface Monitor {
   is_active: boolean
   last_checked_at: string | null
   next_check_at: string | null
+  projects?: { owner_id: string } | null
 }
 
 export interface CheckResult {
@@ -25,4 +26,3 @@ export interface CheckOutcome extends CheckResult {
   previousStatus: 'up' | 'down' | 'unmonitored' | 'paused'
   stateChanged: boolean
 }
-
