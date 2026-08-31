@@ -133,7 +133,7 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-8 text-center text-[11px] text-slate-600">
-              UptimeBoard — Free tier includes 5 projects & 10 monitors per project.
+              UptimeBoard — Free tier includes 2 projects & 5 monitors per project.
         </div>
       </div>
     </div>

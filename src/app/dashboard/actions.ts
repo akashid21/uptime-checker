@@ -154,7 +154,7 @@ export async function createMonitor(formData: FormData): Promise<ActionResult> {
     return { error: 'Project not found or access denied.' }
   }
 
-  // Check monitor count limit for this project (Max 10 on Free Tier)
+  // Check monitor count limit for this project.
   const { count, error: countError } = await supabase
     .from('monitors')
     .select('*', { count: 'exact', head: true })
@@ -288,4 +288,3 @@ export async function deleteMonitor(monitorId: string): Promise<ActionResult> {
   revalidatePath('/dashboard')
   return { success: true }
 }
-

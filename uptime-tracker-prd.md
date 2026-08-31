@@ -33,7 +33,7 @@ Indie developers, small SaaS founders, freelancers hosting client sites — peop
 ### Projects / Monitor Grouping
 - A **project** groups related monitors together (e.g. "Project A" → Dev, Stage, Prod as three monitors under one project)
 - Dashboard rolls up status at the project level (all-green vs. one-environment-down at a glance) as well as per-monitor
-- **Free tier limits (fixed until billing is finalized): 5 projects per account, 10 monitors per project.** When a user hits either limit, block the create action and show a clear "Free tier limit reached" message (with a placeholder for future upgrade CTA once pricing exists) rather than a silent failure or generic error
+- **Free tier limits (fixed until billing is finalized): 2 projects per account, 5 monitors per project.** When a user hits either limit, block the create action and show a clear "Free tier limit reached" message (with a placeholder for future upgrade CTA once pricing exists) rather than a silent failure or generic error
 
 ### Monitoring Engine
 - Scheduled checks per monitor via background jobs
@@ -109,7 +109,7 @@ The uptime-monitoring space is crowded, so the wedge is usually **UX + price + o
 1. **AI-assisted incident diagnosis** *(Deferred to Post-MVP)* — when a monitor goes down, use the response body/headers/error type to generate a plain-English guess at the cause ("Likely a database connection timeout on your server" vs "DNS resolution failed — check your domain's nameservers"), and auto-draft an incident summary/postmortem the user can publish to their status page. This plays to your AI-engineering interest and isn't well done by incumbents.
 2. **Developer-first, API/webhook-first** *(Deferred to Post-MVP)* — no forced Slack/PagerDuty integrations to get basic alerting; a clean REST API and webhooks from day one.
 3. **Radically simpler UX** *(Phase 1 MVP)* — most competitors (Pingdom, StatusCake) have UI built for ops teams from a decade ago. A clean, fast, opinionated dashboard is a differentiator on its own.
-4. **Honest, generous free tier** *(Phase 1 MVP)* — many tools cripple the free tier to force upgrades; a genuinely useful free tier (5 projects, 10 monitors/project) builds trust and word-of-mouth in the indie-hacker community.
+4. **Honest, generous free tier** *(Phase 1 MVP)* — many tools cripple the free tier to force upgrades; a genuinely useful free tier (2 projects, 5 monitors/project) builds trust and word-of-mouth in the indie-hacker community.
 5. **Uptime history as a shareable artifact** *(Deferred to Post-MVP)* — a GitHub-contribution-graph-style visual of uptime history that's satisfying to look at and easy to embed/share (README badges, status page).
 
 *Note: By deferring the AI diagnosis, developer-first API/webhooks, and shareable status page assets to Post-MVP (Phase 2), we focus on shipping the core working monitoring loop and dashboard quickly before adding enhancements in parallel once live.*
@@ -125,11 +125,11 @@ The uptime-monitoring space is crowded, so the wedge is usually **UX + price + o
 
 **Decided:**
 - Monitors are grouped into projects (e.g. Dev/Stage/Prod under one project)
-- Free tier limits are set to exactly 5 projects per account, and 10 monitors per project. When the limit is hit, we show a warning alert in the UI and block execution.
+- Free tier limits are set to exactly 2 projects per account, and 5 monitors per project. When the limit is hit, we show a warning alert in the UI and block execution.
 - Single-region checks for v1; multi-region moved to phase 2 (see Section 6)
 - Stack: Next.js/Node on Vercel over Rails, specifically for deploy speed
 - Auth: Supabase Auth (native JWT, protected tables, easy integration with Next.js client)
 - Scheduler/Worker: Supabase Edge Functions + pg_cron database-level scheduler (running every minute, logging executions to an `audit_logs` table)
 
 **Still open:**
-- Pricing model for v1 monetization (flat tiers vs pay-per-project vs pay-per-monitor) — we will run under the 5 projects / 10 monitors per project free-tier constraints while pricing details are being finalized.
+- Pricing model for v1 monetization (flat tiers vs pay-per-project vs pay-per-monitor) — we will run under the 2 projects / 5 monitors per project free-tier constraints while pricing details are being finalized.

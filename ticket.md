@@ -23,7 +23,7 @@ This document details the implementation plan and development roadmap for **Upti
 ## Proposed PRD Updates
 
 We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-tracker/uptime-tracker-prd.md) as follows:
-1.  **Section 5 (Core Features - MVP):** Under "Projects / Monitor Grouping", explicitly codify the free tier limits (5 projects per account, 10 monitors per project) and mandate showing a clear alert modal or validation warning to the user upon reaching the limit.
+1.  **Section 5 (Core Features - MVP):** Under "Projects / Monitor Grouping", explicitly codify the free tier limits (2 projects per account, 5 monitors per project) and mandate showing a clear alert modal or validation warning to the user upon reaching the limit.
 2.  **Section 7 (Suggested Architecture):** Declare **Supabase Auth** as the chosen Auth solution and **Supabase Edge Functions + pg_cron** as the background worker solution. Detail the database-backed audit logging structure.
 3.  **Section 9 (Differentiation / USP):** Explicitly move "AI-assisted incident diagnosis", "Developer-first, API/webhook-first", and "Uptime history as a shareable artifact / status pages" to Phase 2 (Nice-to-Have/Post-MVP), keeping Phase 1 highly focused on core uptime monitoring.
 4.  **Section 11 (Open Questions):** Mark Auth, Free-Tier Limits, and Background Worker decisions as **Decided**.
@@ -53,8 +53,8 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
 *   Create REST/GraphQL endpoints or Supabase client operations for CRUD actions on projects and monitors.
 *   Implement the UI for creating projects and monitors.
 *   **Enforce Limits & Warnings:**
-    *   *Projects Check:* When a user attempts to create a project, query their existing project count. If count >= 5, abort the operation and render an alert dialog: `"Free tier limit reached: You can create a maximum of 5 projects. Upgrade to add more."`
-    *   *Monitors Check:* When a user attempts to create a monitor, query the monitor count for the target project. If count >= 10, abort the operation and render an alert dialog: `"Free tier limit reached: You can create a maximum of 10 monitors per project. Upgrade to add more."`
+    *   *Projects Check:* When a user attempts to create a project, query their existing project count. If count >= 2, abort the operation and render an alert dialog: `"Free tier limit reached: You can create a maximum of 2 projects. Upgrade to add more."`
+    *   *Monitors Check:* When a user attempts to create a monitor, query the monitor count for the target project. If count >= 5, abort the operation and render an alert dialog: `"Free tier limit reached: You can create a maximum of 5 monitors per project. Upgrade to add more."`
 *   Add frontend validations to block the form submission and show a inline banner/warning message.
 
 ---
@@ -152,8 +152,8 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
 
 ### Manual Verification
 1.  **Limits Test:**
-    *   Create 5 projects and verify that attempting to create a 6th project displays the free tier alert and blocks database submission.
-    *   Under a single project, create 10 monitors and verify that attempting to add an 11th monitor is blocked with the warning.
+    *   Create 2 projects and verify that attempting to create a 3rd project displays the free tier alert and blocks database submission.
+    *   Under a single project, create 5 monitors and verify that attempting to add a 6th monitor is blocked with the warning.
 2.  **Worker Test:**
     *   Invoke the Supabase Edge Function directly and check the `audit_logs` and `checks` tables to confirm pings are successfully recorded.
     *   Simulate a failure (e.g., target a non-existent or blocked URL) and ensure the retry logic and incident creation occur.

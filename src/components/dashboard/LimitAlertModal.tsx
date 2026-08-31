@@ -53,7 +53,7 @@ export default function LimitAlertModal({
           </div>
           <p className="text-slate-400 text-[11px]">
             We are currently finalizing our billing structure. During this preview period, free accounts are capped at{' '}
-            <strong className="text-slate-200">5 projects</strong> and <strong className="text-slate-200">10 monitors per project</strong>.
+            <strong className="text-slate-200">2 projects</strong> and <strong className="text-slate-200">5 monitors per project</strong>.
           </p>
         </div>
 
@@ -70,4 +70,3 @@ export default function LimitAlertModal({
     </div>
   )
 }
-
