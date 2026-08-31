@@ -1,6 +1,6 @@
 # A string used to distinguish different Supabase projects on the same host.
 # Defaults to the working directory name when running `supabase init`.
-project_id = "pulsecheck"
+project_id = "uptimeboard"
 
 [api]
 enabled = true
@@ -72,5 +72,5 @@ enabled = true
 policy = "oneshot"
 inspector_port = 8083
 
-[functions.run-checks]
+[functions.uptimeboard-run-checks]
 verify_jwt = true

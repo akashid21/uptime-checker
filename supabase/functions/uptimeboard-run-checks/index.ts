@@ -1,5 +1,5 @@
 /**
- * PulseCheck — run-checks Edge Function
+ * UptimeBoard — uptimeboard-run-checks Edge Function
  *
  * Triggered every minute by pg_cron via net.http_post.
  * Queries all active monitors that are due for a check,
@@ -136,7 +136,7 @@ async function pingOnce(url: string): Promise<{
     const res = await fetch(url, {
       method: 'GET',
       signal: controller.signal,
-      headers: { 'User-Agent': 'PulseCheck-Monitor/1.0' },
+      headers: { 'User-Agent': 'UptimeBoard-Monitor/1.0' },
       redirect: 'follow',
     })
 
@@ -233,7 +233,7 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  console.log(`[run-checks] Processing ${monitors.length} monitors...`)
+  console.log(`[uptimeboard-run-checks] Processing ${monitors.length} monitors...`)
 
   // ── 2. Run checks in parallel ──────────────────────────────────────────────
   const checkResults = await Promise.all(monitors.map(pingWithRetry))
@@ -381,7 +381,7 @@ Deno.serve(async (req: Request) => {
     console.error('Failed to write audit log:', auditError.message)
   }
 
-  console.log(`[run-checks] Done in ${durationMs}ms — ${successCount} up / ${failCount} down`)
+  console.log(`[uptimeboard-run-checks] Done in ${durationMs}ms — ${successCount} up / ${failCount} down`)
 
   return new Response(
     JSON.stringify({
@@ -391,4 +391,3 @@ Deno.serve(async (req: Request) => {
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 })
-

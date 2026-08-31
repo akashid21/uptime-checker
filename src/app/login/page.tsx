@@ -125,7 +125,7 @@ export default function LoginPage() {
 
           {/* Footer link */}
           <div className="mt-6 text-center text-xs text-slate-400">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
               Sign up free
             </Link>
@@ -133,10 +133,9 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-8 text-center text-[11px] text-slate-600">
-          PulseCheck — Free tier includes 5 projects & 10 monitors per project.
+              UptimeBoard — Free tier includes 5 projects & 10 monitors per project.
         </div>
       </div>
     </div>
   )
 }
-

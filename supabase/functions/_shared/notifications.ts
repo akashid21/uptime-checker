@@ -63,12 +63,12 @@ function buildMessage(notification: IncidentNotification): EmailMessage {
   const monitorUrl = escapeHtml(notification.monitorUrl)
   const statusCode = notification.statusCode ? `HTTP ${notification.statusCode}` : 'No HTTP response'
   const subject = isStarted
-    ? `[PulseCheck] ${notification.monitorName} is down`
-    : `[PulseCheck] ${notification.monitorName} has recovered`
+    ? `[UptimeBoard] ${notification.monitorName} is down`
+    : `[UptimeBoard] ${notification.monitorName} has recovered`
   const headline = isStarted ? 'Your monitor is down' : 'Your monitor has recovered'
   const summary = isStarted
-    ? 'PulseCheck could not reach this service after the configured retries.'
-    : 'PulseCheck can reach this service again and has closed the incident.'
+    ? 'UptimeBoard could not reach this service after the configured retries.'
+    : 'UptimeBoard can reach this service again and has closed the incident.'
   const details = isStarted
     ? `Started: ${formatTimestamp(notification.startedAt)}\nResult: ${statusCode}${notification.errorMessage ? `\nError: ${notification.errorMessage}` : ''}`
     : `Started: ${formatTimestamp(notification.startedAt)}\nResolved: ${formatTimestamp(notification.endedAt || new Date().toISOString())}\nDowntime: ${formatDuration(notification.durationMinutes)}`
@@ -77,7 +77,7 @@ function buildMessage(notification: IncidentNotification): EmailMessage {
   return {
     to: [notification.recipient],
     subject,
-    htmlContent: `<!doctype html><html><body style="margin:0;background:#f4f7fb;color:#172033;font-family:Arial,sans-serif"><div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #dce3ed;border-radius:12px;overflow:hidden"><div style="padding:24px 28px;background:#101827;color:#fff"><div style="font-size:13px;color:#8fe1bf;font-weight:700;letter-spacing:.08em;text-transform:uppercase">PulseCheck</div><h1 style="margin:12px 0 0;font-size:24px">${headline}</h1></div><div style="padding:28px"><p style="margin:0 0 20px;font-size:16px;line-height:1.5">${escapeHtml(summary)}</p><div style="padding:16px;background:#f4f7fb;border-radius:8px;font-size:14px;line-height:1.5"><strong>${monitorName}</strong><div style="margin-top:4px;color:#526176;word-break:break-all">${monitorUrl}</div><div style="margin-top:14px">${safeDetails}</div></div><p style="margin:24px 0 0;color:#526176;font-size:13px;line-height:1.5">You will only receive notifications when this incident starts or ends. Intermediate checks do not send email.</p></div></div></body></html>`,
+    htmlContent: `<!doctype html><html><body style="margin:0;background:#f4f7fb;color:#172033;font-family:Arial,sans-serif"><div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #dce3ed;border-radius:12px;overflow:hidden"><div style="padding:24px 28px;background:#101827;color:#fff"><div style="font-size:13px;color:#8fe1bf;font-weight:700;letter-spacing:.08em;text-transform:uppercase">UptimeBoard</div><h1 style="margin:12px 0 0;font-size:24px">${headline}</h1></div><div style="padding:28px"><p style="margin:0 0 20px;font-size:16px;line-height:1.5">${escapeHtml(summary)}</p><div style="padding:16px;background:#f4f7fb;border-radius:8px;font-size:14px;line-height:1.5"><strong>${monitorName}</strong><div style="margin-top:4px;color:#526176;word-break:break-all">${monitorUrl}</div><div style="margin-top:14px">${safeDetails}</div></div><p style="margin:24px 0 0;color:#526176;font-size:13px;line-height:1.5">You will only receive notifications when this incident starts or ends. Intermediate checks do not send email.</p></div></div></body></html>`,
     textContent: `${headline}\n\n${summary}\n\nMonitor: ${notification.monitorName}\nURL: ${notification.monitorUrl}\n${details}\n\nYou will only receive notifications when this incident starts or ends. Intermediate checks do not send email.`,
   }
 }
@@ -85,7 +85,7 @@ function buildMessage(notification: IncidentNotification): EmailMessage {
 function createBrevoProvider(): EmailProvider {
   const apiKey = requiredEnv('BREVO_API_KEY')
   const senderEmail = requiredEnv('NOTIFICATION_FROM_EMAIL')
-  const senderName = Deno.env.get('NOTIFICATION_FROM_NAME')?.trim() || 'PulseCheck'
+  const senderName = Deno.env.get('NOTIFICATION_FROM_NAME')?.trim() || 'UptimeBoard'
 
   return {
     async send(message) {

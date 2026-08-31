@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PulseCheck — Modern Uptime Tracker",
+  title: "UptimeBoard — Modern Uptime Tracker",
   description: "Zero-config website and API uptime tracking with instant alerts.",
+  icons: {
+    icon: "/icon-512.png",
+    shortcut: "/icon-512.png",
+    apple: "/icon-512.png",
+  },
 };
 
 export default function RootLayout({
@@ -19,4 +24,3 @@ export default function RootLayout({
     </html>
   );
 }
-

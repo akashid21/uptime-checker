@@ -1,4 +1,4 @@
-// Shared types for the run-checks Edge Function
+// Shared types for the UptimeBoard checks Edge Function
 
 export interface Monitor {
   id: string

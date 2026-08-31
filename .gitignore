@@ -1,8 +1,6 @@
-node_modules
-.next
-.env.local
-uptime-tracker-prd.md
-ticket.md
+node_modules/
+.next/
+.vercel/
 supabase/.temp/
 
 # TypeScript build cache
@@ -19,3 +17,4 @@ supabase/.temp/
 # Logs and test output
 *.log
 coverage/
+.vercel
