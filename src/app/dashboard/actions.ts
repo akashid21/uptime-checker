@@ -10,6 +10,8 @@ export type ActionResult = {
   isLimitReached?: boolean
 }
 
+const ALLOWED_CHECK_INTERVALS = [1, 5, 15]
+
 export async function createProject(formData: FormData): Promise<ActionResult> {
   const supabase = await createClient()
 
@@ -131,6 +133,10 @@ export async function createMonitor(formData: FormData): Promise<ActionResult> {
     return { error: 'Project, monitor name, and URL are required.' }
   }
 
+  if (!ALLOWED_CHECK_INTERVALS.includes(interval)) {
+    return { error: 'Check frequency must be 1, 5, or 15 minutes.' }
+  }
+
   // Prepend https:// if user omitted protocol
   if (!/^https?:\/\//i.test(url)) {
     url = `https://${url}`
@@ -179,6 +185,7 @@ export async function createMonitor(formData: FormData): Promise<ActionResult> {
     type: 'http',
     status: 'unmonitored',
     is_active: true,
+    next_check_at: new Date().toISOString(),
   })
 
   if (insertError) {
@@ -209,6 +216,10 @@ export async function updateMonitor(monitorId: string, formData: FormData): Prom
     return { error: 'Monitor name and URL are required.' }
   }
 
+  if (!ALLOWED_CHECK_INTERVALS.includes(interval)) {
+    return { error: 'Check frequency must be 1, 5, or 15 minutes.' }
+  }
+
   if (!/^https?:\/\//i.test(url)) {
     url = `https://${url}`
   }
@@ -219,12 +230,36 @@ export async function updateMonitor(monitorId: string, formData: FormData): Prom
     return { error: 'Please enter a valid URL.' }
   }
 
+  // A changed target must not continue displaying the result for the old URL.
+  // Resetting the schedule also makes the monitor eligible on the next worker
+  // tick (pg_cron runs once per minute).
+  const { data: currentMonitor, error: currentMonitorError } = await supabase
+    .from('monitors')
+    .select('url, check_interval_minutes')
+    .eq('id', monitorId)
+    .single()
+
+  if (currentMonitorError || !currentMonitor) {
+    return { error: 'Monitor not found or access denied.' }
+  }
+
+  const targetChanged = currentMonitor.url !== url
+  const intervalChanged = currentMonitor.check_interval_minutes !== interval
+  const resetCheckState = targetChanged || intervalChanged
+
   const { error } = await supabase
     .from('monitors')
     .update({
       name,
       url,
       check_interval_minutes: interval,
+      ...(resetCheckState
+        ? {
+            status: 'unmonitored',
+            last_checked_at: null,
+            next_check_at: new Date().toISOString(),
+          }
+        : {}),
     })
     .eq('id', monitorId)
 
@@ -253,7 +288,8 @@ export async function toggleMonitorActive(monitorId: string, isActive: boolean):
     .from('monitors')
     .update({
       is_active: isActive,
-      status: newStatus,
+      status: isActive ? 'unmonitored' : 'paused',
+      next_check_at: isActive ? new Date().toISOString() : null,
     })
     .eq('id', monitorId)
 

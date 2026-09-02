@@ -277,7 +277,14 @@ Deno.serve(async (req: Request) => {
   for (const outcome of outcomes) {
     const { monitor, is_up, stateChanged, previousStatus } = outcome
     const newStatus = is_up ? 'up' : 'down'
-    const nextCheckAt = new Date(Date.now() + monitor.check_interval_minutes * 60 * 1000).toISOString()
+    // Keep the cadence anchored to the scheduled time. Scheduling from
+    // Date.now() makes retry latency and worker runtime accumulate as drift.
+    // Catch up missed slots without scheduling a timestamp in the past.
+    const intervalMs = monitor.check_interval_minutes * 60 * 1000
+    let nextCheckTime = new Date(monitor.next_check_at || runAt).getTime() + intervalMs
+    const now = Date.now()
+    while (nextCheckTime <= now) nextCheckTime += intervalMs
+    const nextCheckAt = new Date(nextCheckTime).toISOString()
 
     // Update monitor: status + last_checked_at + next_check_at
     const { error: updateError } = await supabase

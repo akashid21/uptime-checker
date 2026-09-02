@@ -39,7 +39,7 @@ export default function SignupPage() {
               <Activity className="w-5 h-5 text-emerald-400" />
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full pulse-dot glow-emerald" />
             </div>
-            <span>Pulse<span className="text-indigo-400">Check</span></span>
+            <span>Uptime<span className="text-indigo-400">Board</span></span>
           </Link>
           <p className="text-sm text-slate-400">
             Create your account to start tracking uptime
