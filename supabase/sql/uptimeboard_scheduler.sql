@@ -39,10 +39,18 @@ begin
 end $$;
 
 do $$
+declare
+  r record;
 begin
-  if exists (select 1 from cron.job where jobname = 'uptimeboard-scheduler') then
-    perform cron.unschedule('uptimeboard-scheduler');
-  end if;
+  for r in
+    select jobid
+    from cron.job
+    where jobname = 'uptimeboard-scheduler'
+       or jobname like '%uptimeboard%'
+       or jobname like '%scheduler%'
+  loop
+    perform cron.unschedule(r.jobid);
+  end loop;
 end $$;
 
 select cron.schedule(

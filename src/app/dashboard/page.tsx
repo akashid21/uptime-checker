@@ -73,7 +73,7 @@ export default async function DashboardPage() {
               <Activity className="w-5 h-5 text-emerald-400" />
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full pulse-dot glow-emerald" />
             </div>
-            <span className="font-bold text-lg text-white">Pulse<span className="text-indigo-400">Check</span></span>
+            <span className="font-bold text-lg text-white">Uptime<span className="text-indigo-400">Board</span></span>
             <span className="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
               Free Tier
             </span>
