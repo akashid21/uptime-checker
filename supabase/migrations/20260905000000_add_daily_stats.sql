@@ -172,21 +172,3 @@ as $$
     and (c.created_at at time zone p_timezone)::date = p_check_date
   group by c.monitor_id;
 $$;
-
--- Backfill existing data immediately. The command is idempotent and can be
--- rerun after late-arriving checks.
-select public.rollup_daily_stats('1970-01-01'::date, current_date, 'UTC');
-
--- Refresh yesterday hourly so it is complete before retention pruning runs.
-do $$
-begin
-  if exists (select 1 from cron.job where jobname = 'uptimeboard-daily-stats-rollup') then
-    perform cron.unschedule('uptimeboard-daily-stats-rollup');
-  end if;
-  perform cron.schedule(
-    'uptimeboard-daily-stats-rollup',
-    '5 * * * *',
-    $job$select public.rollup_daily_stats((current_date - 1)::date, (current_date - 1)::date, 'UTC');$job$
-  );
-end;
-$$;

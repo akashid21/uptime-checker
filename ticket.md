@@ -163,7 +163,9 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
     *   `uptime_percentage`, `average_response_time_ms`, `min_response_time_ms`, `max_response_time_ms`
     *   `total_downtime_minutes`, `incident_count`, `created_at`, and `updated_at`
 *   Backfill `daily_stats` from existing `checks` before enabling retention pruning.
+    *   Use `supabase/sql/backfill_daily_stats.sql` for manual backfills; its inclusive start and end dates can be changed for a custom range.
 *   Implement an idempotent daily aggregation/upsert job. It must aggregate by `monitor_id` and the selected timezone, so reruns produce the same result and late-arriving checks are included.
+    *   Install the production schedule separately with `supabase/sql/daily_stats_scheduler.sql`; the schema migration must not implicitly backfill all history or create a cron job.
 *   Ensure the previous day's rollup is complete and verified before its raw `checks` partition is dropped. Keep the current day's raw checks available for live status and operational views.
 *   Update the dashboard reliability grid to read one daily record per monitor/day from `daily_stats`. For the current day, either read an incrementally maintained `daily_stats` row or call a server-side aggregate over today's checks; never rely on a client-side fetch of the full raw-check list.
 *   Remove the unpaginated 30-day raw-check query from the grid data path. If raw checks are needed elsewhere, use pagination or bounded queries explicitly.
