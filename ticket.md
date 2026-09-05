@@ -124,6 +124,56 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
 *   Use Resend or Supabase's built-in SMTP service to dispatch alerts.
 *   Ensure deduplication: only alert when an incident starts or ends, never on intermediate checks.
 
+#### Dashboard History Data Integrity — Root Cause and Required Solution
+*   **Root cause identified:** the reliability grid currently loads raw rows from `checks` for all monitors, orders them newest-first, and does not paginate the Supabase query. Supabase's API response limit is 1,000 rows by default. A monitor checking every minute can produce more than 1,000 rows in a few days, so older days are silently omitted from the response and appear as `No data` even though checks exist.
+*   The current grid recomputes each block in the browser from `checks.created_at`. It does not consume the daily aggregate fields (`check_date`, `total_checks`, `successful_checks`, `failed_checks`, and `uptime_percentage`), so the block display depends on the incomplete raw-check response.
+*   **Required solution:** create and maintain one `daily_stats` row per monitor and calendar day, and use those rows for the 30-day reliability grid. The result must include `monitor_id`; an aggregate without monitor identity cannot populate per-monitor rows.
+*   Raw checks may continue to be used for current-day operational details, but the grid must use a SQL/RPC aggregate or an incrementally upserted `daily_stats` row for the current day rather than downloading all current-day checks.
+*   Daily boundaries must use one explicit timezone consistently in aggregation and display. Use UTC for the initial implementation, or persist the configured user timezone when user-local reporting is introduced; do not compare UTC database dates with browser-local midnight boundaries implicitly.
+*   Raw-check retention must happen only after the corresponding daily rollup succeeds and is verified. Otherwise, pruning can permanently remove history required by the 30-day grid.
+
+---
+
+### Phase 3.5: `checks` Table Scalability & Retention
+
+*Context: at 1-min check intervals, a single maxed-out free-tier account (5 projects × 10 monitors) generates up to ~72,000 raw check rows/day. Raw data is meant to be capped at a 7-day retention window per the PRD (Section 7), but the write path and pruning strategy need to be explicit before this is running unattended in prod.*
+
+#### Ticket 3.3: Partition the `checks` Table by Day
+*   Convert `checks` to a native Postgres **declarative partitioned table**, partitioned by day (or week) on `created_at`.
+*   Write a migration to backfill/convert existing data into the new partitioned structure.
+*   Auto-create upcoming partitions ahead of time (e.g., via a scheduled job or `pg_partman`) so `run-checks` never fails due to a missing partition.
+*   **Rationale:** enables retention pruning via partition drop (near-instant, no table bloat/vacuum pressure) instead of row-by-row `DELETE`, which degrades as data grows.
+#### Ticket 3.4: Batch Inserts in the `run-checks` Edge Function
+*   Update `/v1/run-checks` (Ticket 2.1) so all check results from a single invocation are written via one batched multi-row `INSERT`, not one `INSERT` per monitor.
+*   Add a test asserting a single DB round-trip per invocation regardless of monitor count (within Supabase's payload/row limits — chunk if needed for very large batches).
+*   **Rationale:** avoids unnecessary connection/round-trip overhead at scale (up to 14,400 individual inserts/day per project otherwise).
+#### Ticket 3.5: Retention Pruning Job & Rollup Monitoring
+*   Add a scheduled job (same pg_cron pattern as the checker) that drops/detaches `checks` partitions older than 7 days.
+*   Extend the `audit_logs` entries (Ticket 2.3) or the "System Logs" tab to surface:
+    *   Whether the `daily_stats` aggregation job ran successfully and how far behind (if at all) it is.
+    *   Whether the retention pruning job ran successfully and which partitions were dropped.
+*   Add alerting (even just a dashboard warning banner) if the rollup job falls behind, since raw data loss without a completed rollup would silently lose long-term history.
+*   **Acceptance Criteria:**
+    *   A partition older than 7 days is dropped automatically within 24 hours of expiring.
+    *   If the `daily_stats` rollup fails for a given day, this is visible in System Logs before the corresponding raw partition is pruned.
+
+#### Ticket 3.6: Daily Stats Rollups and Dashboard History
+*   Create a `daily_stats` table with a unique constraint on `(monitor_id, check_date)` and fields sufficient for current and planned reporting:
+    *   `monitor_id`, `check_date`, `total_checks`, `successful_checks`, `failed_checks`
+    *   `uptime_percentage`, `average_response_time_ms`, `min_response_time_ms`, `max_response_time_ms`
+    *   `total_downtime_minutes`, `incident_count`, `created_at`, and `updated_at`
+*   Backfill `daily_stats` from existing `checks` before enabling retention pruning.
+*   Implement an idempotent daily aggregation/upsert job. It must aggregate by `monitor_id` and the selected timezone, so reruns produce the same result and late-arriving checks are included.
+*   Ensure the previous day's rollup is complete and verified before its raw `checks` partition is dropped. Keep the current day's raw checks available for live status and operational views.
+*   Update the dashboard reliability grid to read one daily record per monitor/day from `daily_stats`. For the current day, either read an incrementally maintained `daily_stats` row or call a server-side aggregate over today's checks; never rely on a client-side fetch of the full raw-check list.
+*   Remove the unpaginated 30-day raw-check query from the grid data path. If raw checks are needed elsewhere, use pagination or bounded queries explicitly.
+*   Return empty daily slots as `No data`, and distinguish them from a recorded day with 0% uptime.
+*   **Acceptance Criteria:**
+    *   A monitor with checks on six consecutive days displays six populated blocks, regardless of whether the raw checks exceed 1,000 rows.
+    *   A 30-day grid remains correct after raw checks older than seven days are pruned.
+    *   Each monitor's row uses only that monitor's daily stats.
+    *   The current-day block updates after the existing dashboard polling interval without loading all current-day raw checks.
+    *   Rollup reruns are safe and do not duplicate or double-count daily statistics.
 ---
 
 ### Phase 4: Deferred Features (Post-MVP)

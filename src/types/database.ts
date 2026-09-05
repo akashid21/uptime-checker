@@ -38,6 +38,22 @@ export interface Check {
   created_at: string
 }
 
+export interface DailyStat {
+  monitor_id: string
+  check_date: string
+  total_checks: number
+  successful_checks: number
+  failed_checks: number
+  uptime_percentage: number | string
+  average_response_time_ms: number | string | null
+  min_response_time_ms: number | null
+  max_response_time_ms: number | null
+  total_downtime_minutes: number
+  incident_count: number
+  created_at?: string
+  updated_at?: string
+}
+
 export interface Incident {
   id: string
   monitor_id: string
@@ -47,4 +63,3 @@ export interface Incident {
   resolution_reason: string | null
   created_at: string
 }
-

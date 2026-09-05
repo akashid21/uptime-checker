@@ -45,6 +45,9 @@ Indie developers, small SaaS founders, freelancers hosting client sites — peop
 - History views: last 24h (minute-level), 7d, 30d, 90d (daily rollups)
 - Response time trend graph
 - Incident timeline: when it went down, when it recovered, duration, cause if detectable (timeout, 5xx, DNS failure, SSL error, connection refused)
+- The 30-day reliability grid is powered by one `daily_stats` record per monitor and calendar day, not by an unbounded client-side read of raw checks.
+- The current day is represented by an incrementally maintained daily rollup or a server-side aggregate of today's checks; the browser must not download the full current-day raw-check list.
+- Daily history queries must include `monitor_id` so statistics cannot be applied to the wrong monitor. Missing records mean `No data`; a record with failed checks represents recorded downtime.
 
 ### Alerting
 - Email alerts on down/recovered (v1)
@@ -82,9 +85,11 @@ Indie developers, small SaaS founders, freelancers hosting client sites — peop
   - `checks` (raw ping results — high volume, short retention)
   - `incidents` (start, end, cause, monitor_id)
   - `audit_logs` (actor, action, details, created_at)
-  - `daily_stats` (aggregated rollups — monitor_id, date, uptime_pct, downtime_minutes) — this is what powers the 30/90-day views cheaply
+  - `daily_stats` (one aggregated row per monitor and calendar day) — this powers the 7/30/90-day views cheaply and remains available after raw checks are pruned
 - **Auth**: Supabase Auth (native JWT verification, protected tables with RLS policies, and seamless integration with Next.js).
-- A scheduled aggregation job (via the same pg_cron + Edge Function scheduler) rolls raw `checks` into `daily_stats` and prunes old raw checks (e.g., keep raw data 7 days, keep daily rollups forever)
+- A scheduled aggregation job (via the same pg_cron + Edge Function scheduler) rolls raw `checks` into `daily_stats` using an idempotent upsert keyed by `(monitor_id, check_date)`. It must complete and verify the rollup before pruning the corresponding raw partition (e.g., keep raw data 7 days, keep daily rollups forever).
+- `daily_stats` should initially include `monitor_id`, `check_date`, `total_checks`, `successful_checks`, `failed_checks`, `uptime_percentage`, `average_response_time_ms`, `min_response_time_ms`, `max_response_time_ms`, `total_downtime_minutes`, `incident_count`, `created_at`, and `updated_at` so future history and performance views do not require re-reading raw checks.
+- The dashboard must query daily stats for historical blocks and use either the current day's maintained rollup or a server-side current-day aggregate. It must not depend on the default 1,000-row Supabase response limit.
 
 This keeps the expensive/high-volume data (raw checks) short-lived, while the long-term history the user actually cares about is cheap aggregated rows — same principle as before, adapted to a serverless-friendly stack.
 
@@ -93,10 +98,11 @@ This keeps the expensive/high-volume data (raw checks) short-lived, while the lo
 | Challenge | Approach |
 |---|---|
 | **False positives** — a single failed ping isn't real downtime | Require N consecutive failed checks (with short retry delay) before marking a monitor "down" |
-| **Check volume/scale** — many monitors × frequent checks = lots of rows | Aggregate into daily rollups, purge raw check data after a retention window |
+| **Check volume/scale** — many monitors × frequent checks = lots of rows | Aggregate into per-monitor daily rollups, purge raw check data after a verified retention window, and never use an unpaginated raw-check query for historical dashboard data |
 | **Alert fatigue / flapping services** | Debounce alerts; one alert per incident, not per failed check; recovery alert only once |
 | **"Who monitors the monitor?"** — your own service needs to be reliable | Run checks from a separate worker fleet from your web app; have your own status page/self-check; consider a secondary lightweight watchdog |
-| **Timezone-correct daily stats** | Store all timestamps in UTC; compute "day" boundaries in the user's chosen timezone at display time, not storage time |
+| **Timezone-correct daily stats** | Store event timestamps in UTC and apply one explicit reporting timezone consistently when producing and displaying `check_date`; use UTC initially if user-local reporting is not yet configured |
+| **Incomplete dashboard blocks** — Supabase returns only the first 1,000 raw checks | Drive the grid from `daily_stats` rows keyed by `monitor_id` and `check_date`; aggregate the current day server-side or maintain it incrementally |
 | **Distinguishing real downtime from your own deploys/maintenance** | Maintenance windows that suppress alerting without hiding the downtime from history |
 | **Cost of frequent polling at scale** | Tier check intervals by plan (free = 5–15 min, paid = 1 min); consider batching HTTP checks efficiently in worker pools |
 | **False "up" from a site that responds but is broken** (e.g., a 200 OK error page) | Optional keyword/content assertion checks, not just status codes |
