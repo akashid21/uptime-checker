@@ -142,6 +142,9 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
 *   Convert `checks` to a native Postgres **declarative partitioned table**, partitioned by day (or week) on `created_at`.
 *   Write a migration to backfill/convert existing data into the new partitioned structure.
 *   Auto-create upcoming partitions ahead of time (e.g., via a scheduled job or `pg_partman`) so `run-checks` never fails due to a missing partition.
+*   Use `supabase/migrations/20260905000000_partition_checks_by_day.sql` for the conversion and `supabase/sql/checks_partition_scheduler.sql` to install the daily partition-creation job.
+*   Preserve the pre-conversion table as `checks_legacy_20260905` until row counts, date coverage, and application writes have been verified; remove the backup in a separate approved cleanup operation.
+*   Because PostgreSQL requires partition keys in unique constraints, use `(id, created_at)` as the partitioned table primary key while retaining the UUID `id` values used by the application.
 *   **Rationale:** enables retention pruning via partition drop (near-instant, no table bloat/vacuum pressure) instead of row-by-row `DELETE`, which degrades as data grows.
 #### Ticket 3.4: Batch Inserts in the `run-checks` Edge Function
 *   Update `/v1/run-checks` (Ticket 2.1) so all check results from a single invocation are written via one batched multi-row `INSERT`, not one `INSERT` per monitor.
