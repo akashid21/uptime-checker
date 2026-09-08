@@ -1,5 +1,5 @@
 -- Ticket 3.3: create future checks partitions before they are needed.
--- Run after 20260905000000_partition_checks_by_day.sql.
+-- Run after 20260906000000_partition_checks_by_day.sql.
 -- Runs daily at 00:05 UTC and keeps 31 days of partitions ahead.
 
 do $$

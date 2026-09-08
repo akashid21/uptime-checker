@@ -142,7 +142,7 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
 *   Convert `checks` to a native Postgres **declarative partitioned table**, partitioned by day (or week) on `created_at`.
 *   Write a migration to backfill/convert existing data into the new partitioned structure.
 *   Auto-create upcoming partitions ahead of time (e.g., via a scheduled job or `pg_partman`) so `run-checks` never fails due to a missing partition.
-*   Use `supabase/migrations/20260905000000_partition_checks_by_day.sql` for the conversion and `supabase/sql/checks_partition_scheduler.sql` to install the daily partition-creation job.
+*   Use `supabase/migrations/20260906000000_partition_checks_by_day.sql` for the conversion and `supabase/sql/checks_partition_scheduler.sql` to install the daily partition-creation job.
 *   Preserve the pre-conversion table as `checks_legacy_20260905` until row counts, date coverage, and application writes have been verified; remove the backup in a separate approved cleanup operation.
 *   Because PostgreSQL requires partition keys in unique constraints, use `(id, created_at)` as the partitioned table primary key while retaining the UUID `id` values used by the application.
 *   **Rationale:** enables retention pruning via partition drop (near-instant, no table bloat/vacuum pressure) instead of row-by-row `DELETE`, which degrades as data grows.
@@ -152,6 +152,11 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
 *   **Rationale:** avoids unnecessary connection/round-trip overhead at scale (up to 14,400 individual inserts/day per project otherwise).
 #### Ticket 3.5: Retention Pruning Job & Rollup Monitoring
 *   Add a scheduled job (same pg_cron pattern as the checker) that drops/detaches `checks` partitions older than 7 days.
+*   Implement the retention functions in `supabase/migrations/20260908000000_add_checks_retention.sql` and install the schedule separately with `supabase/sql/checks_retention_scheduler.sql`.
+*   Follow `supabase/MIGRATIONS.md` for migration order, verification queries, and rollback procedures.
+*   The pruning function must default to `dry_run = true`, expose a read-only eligibility report, and prune only when per-monitor raw check counts exactly match `daily_stats`.
+*   Every dropped partition must be written to `audit_logs` with its date, row count, retention period, and completion timestamp.
+*   Keep `checks_legacy_20260905` untouched by automated pruning until the partition migration has been explicitly verified and the backup cleanup is separately approved.
 *   Extend the `audit_logs` entries (Ticket 2.3) or the "System Logs" tab to surface:
     *   Whether the `daily_stats` aggregation job ran successfully and how far behind (if at all) it is.
     *   Whether the retention pruning job ran successfully and which partitions were dropped.
@@ -159,6 +164,9 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
 *   **Acceptance Criteria:**
     *   A partition older than 7 days is dropped automatically within 24 hours of expiring.
     *   If the `daily_stats` rollup fails for a given day, this is visible in System Logs before the corresponding raw partition is pruned.
+    *   A dry-run lists the exact partitions that would be removed without changing data.
+    *   A partition with missing or mismatched daily stats is skipped and produces an auditable reason.
+    *   Unscheduling the two cron jobs stops future rollups and pruning; no cleanup job is installed by the migration itself.
 
 #### Ticket 3.6: Daily Stats Rollups and Dashboard History
 *   Create a `daily_stats` table with a unique constraint on `(monitor_id, check_date)` and fields sufficient for current and planned reporting:

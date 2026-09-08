@@ -56,6 +56,8 @@ Use this checklist for a new Supabase project and a new UptimeBoard deployment.
   - [ ] `pg_cron`, `pg_net`, and Vault extensions
 
 - [ ] If the schema was created from `supabase_schema.sql` manually, run the notification-delivery migration SQL as well.
+- [ ] Read [`supabase/MIGRATIONS.md`](supabase/MIGRATIONS.md) before applying the daily-stats, partition, or retention operations.
+- [ ] Run the daily-stats backfill and partition/retention scheduler SQL files manually in the documented order; `supabase db push` does not perform those operational steps.
 
 ## 5. Configure Brevo
 
