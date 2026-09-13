@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Activity, Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
 import { login } from './actions'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -122,6 +123,17 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <div className="relative mt-6">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-slate-800" />
+            </div>
+            <div className="relative flex justify-center text-[11px]">
+              <span className="bg-[#101622] px-3 text-slate-500">OR</span>
+            </div>
+          </div>
+
+          <GoogleSignInButton />
 
           {/* Footer link */}
           <div className="mt-6 text-center text-xs text-slate-400">
