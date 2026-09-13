@@ -7,6 +7,10 @@
 
 begin;
 
+-- Keep production aligned with the development schema, which uses
+-- uuid_generate_v4() from the uuid-ossp extension.
+create extension if not exists "uuid-ossp";
+
 alter table public.checks rename to checks_legacy_20260905;
 
 create table public.checks (
