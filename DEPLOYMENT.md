@@ -128,7 +128,88 @@ Use this checklist for a new Supabase project and a new UptimeBoard deployment.
 - [ ] Add the production app URL to the redirect allow list.
 - [ ] For local development, keep `http://localhost:3000` allowed.
 
-## 9. Run the end-to-end test
+## 9. Google Auth (Sign in)
+
+Ticket 1.2a uses Google as a provider through Supabase Auth. The Google OAuth
+credentials are stored in Supabase, not in Next.js or the repository.
+
+### Google Cloud Console
+
+- [ ] Open **Google Cloud Console → Google Auth Platform** and select or create the project.
+- [ ] Configure the consent screen / branding:
+  - App name: `UptimeBoard`
+  - Support email: an address you control
+  - Audience: `External`
+  - Scopes: `openid`, `email`, and `profile`
+- [ ] While the app is in testing mode, add developer/test accounts as test users.
+- [ ] Create **Credentials → OAuth client ID → Web application**.
+- [ ] Add these Authorized JavaScript origins:
+
+  ```text
+  http://localhost:3000
+  https://<production-domain>
+  ```
+
+- [ ] Add this Authorized redirect URI. This is the Google-to-Supabase callback,
+  not the application callback:
+
+  ```text
+  https://<project-ref>.supabase.co/auth/v1/callback
+  ```
+
+- [ ] Save the generated **Client ID** and **Client Secret** securely.
+
+If local development uses a separate local Supabase stack, also add:
+
+```text
+http://127.0.0.1:54321/auth/v1/callback
+```
+
+### Supabase Dashboard
+
+- [ ] Open **Authentication → Providers → Google**.
+- [ ] Enable Google.
+- [ ] Paste the Google **Client ID** and **Client Secret** into the provider form.
+- [ ] In **Authentication → URL Configuration**, set:
+
+  ```text
+  Site URL: https://<production-domain>
+  ```
+
+- [ ] Add these application Redirect URLs:
+
+  ```text
+  http://localhost:3000/auth/callback
+  https://<production-domain>/auth/callback
+  ```
+
+The Google redirect URI and Supabase application Redirect URLs serve different
+purposes. Google first redirects to Supabase at `/auth/v1/callback`; Supabase
+then redirects to this application at `/auth/callback`.
+
+### Application environment variables
+
+For local development, `.env.local` needs only the existing Supabase values:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable-or-anon-key>
+```
+
+Add the same two variables to the production hosting provider. Do **not** add
+the Google Client Secret, Supabase service-role key, or any other secret to a
+`NEXT_PUBLIC_*` variable, the browser, or source control.
+
+### Verification
+
+- [ ] Start the app with `npm run dev` and open `http://localhost:3000/login`.
+- [ ] Click **Continue with Google** and complete sign-in with a configured test user.
+- [ ] Confirm the browser returns to `/dashboard`.
+- [ ] Confirm a corresponding row exists in `profiles`.
+- [ ] Repeat from `/signup` and confirm the same flow works for a new Google account.
+- [ ] Repeat the test against the deployed production URL.
+
+## 10. Run the end-to-end test
 
 - [ ] Create a user and sign in.
 - [ ] Create a project and an active monitor pointing to a known healthy URL.
@@ -141,7 +222,7 @@ Use this checklist for a new Supabase project and a new UptimeBoard deployment.
 - [ ] Confirm no additional email is sent during intermediate checks.
 - [ ] Check Edge Function logs and `audit_logs` if any step fails.
 
-## 10. Production build
+## 11. Production build
 
 - [ ] Set the production environment variables in the hosting provider.
 - [ ] Run `npm run build`.

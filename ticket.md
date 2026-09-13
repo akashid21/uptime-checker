@@ -49,6 +49,22 @@ We will update [uptime-tracker-prd.md](file:///Users/abhijeetkashid/uptime-track
 *   Implement sign-up, sign-in, and sign-out UI views.
 *   Create Next.js middleware to protect all routes under `/dashboard/*` and redirect unauthenticated users to `/login`.
 
+##### Ticket 1.2a: Google OAuth Sign-In
+*   **Google Cloud Console:**
+    *   Create an OAuth consent screen (External, add app name + support email).
+    *   Create OAuth Client ID (Web application type).
+    *   Add authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`.
+*   **Supabase Dashboard:**
+    *   Authentication → Providers → enable Google.
+    *   Add the Client ID and Client Secret from Google Cloud Console.
+*   **App changes:**
+    *   Add `handleGoogleSignIn` using `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: '<origin>/auth/callback' } })`, wired to a "Continue with Google" button on both login and signup pages.
+    *   Add `app/auth/callback/route.js` to exchange the OAuth `code` param for a session via `supabase.auth.exchangeCodeForSession(code)`, then redirect to `/dashboard`.
+*   **Verification:**
+    *   Confirm the `profiles` row-creation trigger (on `auth.users` insert) fires correctly for Google sign-ups, same as email/password.
+    *   Confirm RLS policies scope data correctly for Google-authenticated users (no special-casing needed — same JWT shape).
+*   **Rationale:** Supabase Auth supports Google as a native OAuth provider, so this is additive — no changes to schema, RLS, or the background worker/scheduler architecture.
+
 #### Ticket 1.3: Projects & Monitors CRUD with Free-Tier Limits
 *   Create REST/GraphQL endpoints or Supabase client operations for CRUD actions on projects and monitors.
 *   Implement the UI for creating projects and monitors.
