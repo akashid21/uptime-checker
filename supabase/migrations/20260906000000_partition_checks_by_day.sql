@@ -9,7 +9,9 @@ begin;
 
 -- Keep production aligned with the development schema, which uses
 -- uuid_generate_v4() from the uuid-ossp extension.
+create schema if not exists extensions;
 create extension if not exists "uuid-ossp";
+set local search_path = public, extensions, pg_catalog;
 
 alter table public.checks rename to checks_legacy_20260905;
 
