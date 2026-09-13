@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Incident, Project, Monitor } from '@/types/database'
+import { DailyStat, Incident, Project, Monitor } from '@/types/database'
 import ProjectCard from './ProjectCard'
 import ProjectModal from './ProjectModal'
 import MonitorModal from './MonitorModal'
@@ -25,7 +25,7 @@ import {
 interface DashboardContentProps {
   initialProjects: Project[]
   initialMonitors: Monitor[]
-  initialChecks: Check[]
+  initialDailyStats: DailyStat[]
   initialIncidents: Incident[]
   userEmail: string
 }
@@ -33,7 +33,7 @@ interface DashboardContentProps {
 export default function DashboardContent({
   initialProjects,
   initialMonitors,
-  initialChecks,
+  initialDailyStats,
   initialIncidents,
   userEmail,
 }: DashboardContentProps) {
@@ -68,15 +68,16 @@ export default function DashboardContent({
   const downMonitors = activeMonitors.filter((monitor) => monitor.status === 'down')
   const pendingMonitors = activeMonitors.filter((monitor) => monitor.status === 'unmonitored')
   const operational = activeMonitors.length > 0 && downMonitors.length === 0
-  const checksUp = initialChecks.filter((check) => check.is_up).length
-  const uptime = initialChecks.length > 0 ? Math.round((checksUp / initialChecks.length) * 1000) / 10 : null
+  const totalChecks = initialDailyStats.reduce((total, stat) => total + stat.total_checks, 0)
+  const successfulChecks = initialDailyStats.reduce((total, stat) => total + stat.successful_checks, 0)
+  const uptime = totalChecks > 0 ? Math.round((successfulChecks / totalChecks) * 1000) / 10 : null
   const lastUpdated = useMemo(() => {
-    const latest = initialChecks[0]?.created_at || initialMonitors.reduce<string | null>((latest, monitor) => {
+    const latest = initialDailyStats[initialDailyStats.length - 1]?.updated_at || initialMonitors.reduce<string | null>((latest, monitor) => {
       if (!monitor.last_checked_at) return latest
       return !latest || monitor.last_checked_at > latest ? monitor.last_checked_at : latest
     }, null)
     return latest ? new Date(latest) : null
-  }, [initialChecks, initialMonitors])
+  }, [initialDailyStats, initialMonitors])
 
   // Poll only while the dashboard is visible. Modal state is intentionally a pause
   // point so a refresh never replaces values someone is currently editing.
@@ -225,7 +226,7 @@ export default function DashboardContent({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric label="Active monitors" value={activeMonitors.length} detail={`${totalMonitors} total`} icon={<Server className="h-4 w-4" />} />
         <Metric label="Down right now" value={downMonitors.length} detail={downMonitors.length ? 'Needs attention' : 'Nothing to fix'} icon={<CircleAlert className="h-4 w-4" />} tone={downMonitors.length ? 'down' : 'neutral'} />
-        <Metric label="30-day uptime" value={uptime === null ? '—' : `${uptime}%`} detail={initialChecks.length ? `${initialChecks.length} checks recorded` : 'No check history yet'} icon={<Activity className="h-4 w-4" />} tone="up" />
+        <Metric label="30-day uptime" value={uptime === null ? '—' : `${uptime}%`} detail={totalChecks ? `${totalChecks} checks recorded` : 'No check history yet'} icon={<Activity className="h-4 w-4" />} tone="up" />
         <Metric label="Projects" value={projectCount} detail={`${FREE_TIER_LIMITS.MAX_PROJECTS - projectCount} slots available`} icon={<Layers className="h-4 w-4" />} />
       </div>
 
@@ -235,7 +236,7 @@ export default function DashboardContent({
             <div><h2 className="text-sm font-semibold text-white">30-day reliability</h2><p className="mt-1 text-xs text-slate-500">Each block represents a day of recorded checks.</p></div>
             <div className="flex items-center gap-2 text-[10px] text-slate-500"><span className="h-2 w-2 rounded-sm bg-slate-800" />No data <span className="h-2 w-2 rounded-sm bg-emerald-500" />Healthy</div>
           </div>
-          <UptimeGrid monitors={initialMonitors} checks={initialChecks} />
+          <UptimeGrid monitors={initialMonitors} stats={initialDailyStats} />
         </section>
 
         <section className="glass-panel rounded-2xl border border-slate-800/80 p-5">
@@ -297,10 +298,22 @@ function Metric({ label, value, detail, icon, tone = 'neutral' }: { label: strin
   return <div className="glass-panel rounded-2xl border border-slate-800/80 p-4 sm:p-5"><div className="flex items-center justify-between gap-2"><span className="text-[11px] font-medium text-slate-400">{label}</span><span className={tone === 'down' ? 'text-rose-400' : tone === 'up' ? 'text-emerald-400' : 'text-indigo-400'}>{icon}</span></div><p className={`mt-3 text-xl font-bold ${color}`}>{value}</p><p className="mt-1 truncate text-[10px] text-slate-500">{detail}</p></div>
 }
 
-function UptimeGrid({ monitors, checks }: { monitors: Monitor[]; checks: Check[] }) {
-  const days = Array.from({ length: 30 }, (_, index) => { const date = new Date(); date.setHours(0, 0, 0, 0); date.setDate(date.getDate() - (29 - index)); return date })
+function UptimeGrid({ monitors, stats }: { monitors: Monitor[]; stats: DailyStat[] }) {
+  const days = Array.from({ length: 30 }, (_, index) => {
+    const date = new Date()
+    date.setUTCHours(0, 0, 0, 0)
+    date.setUTCDate(date.getUTCDate() - (29 - index))
+    return date.toISOString().slice(0, 10)
+  })
   if (!monitors.length) return <div className="flex h-28 items-center justify-center text-xs text-slate-500">Add a monitor to see uptime history.</div>
-  return <div className="mt-6 space-y-3">{monitors.slice(0, 6).map((monitor) => <div key={monitor.id} className="flex items-center gap-3"><span className="w-24 truncate text-[11px] text-slate-400" title={monitor.name}>{monitor.name}</span><div className="grid min-w-0 flex-1 grid-cols-10 gap-1 sm:grid-cols-[repeat(15,minmax(0,1fr))] md:grid-cols-[repeat(30,minmax(0,1fr))]">{days.map((day) => { const next = new Date(day); next.setDate(next.getDate() + 1); const dayChecks = checks.filter((check) => check.monitor_id === monitor.id && new Date(check.created_at) >= day && new Date(check.created_at) < next); const ratio = dayChecks.length ? dayChecks.filter((check) => check.is_up).length / dayChecks.length : null; return <span key={day.toISOString()} title={`${day.toLocaleDateString()}: ${ratio === null ? 'No data' : `${Math.round(ratio * 100)}% uptime`}`} className={`h-3 rounded-sm ${ratio === null ? 'bg-slate-800' : ratio === 1 ? 'bg-emerald-500' : ratio >= 0.95 ? 'bg-emerald-700' : ratio >= 0.8 ? 'bg-amber-500' : 'bg-rose-500'}`} /> })}</div></div>)}</div>
+  return <div className="mt-6 space-y-3">{monitors.slice(0, 6).map((monitor) => <div key={monitor.id} className="flex items-center gap-3"><span className="w-24 truncate text-[11px] text-slate-400" title={monitor.name}>{monitor.name}</span><div className="grid min-w-0 flex-1 grid-cols-10 gap-1 sm:grid-cols-[repeat(15,minmax(0,1fr))] md:grid-cols-[repeat(30,minmax(0,1fr))]">{days.map((day) => { const stat = stats.find((candidate) => candidate.monitor_id === monitor.id && candidate.check_date === day); const ratio = stat ? stat.successful_checks / stat.total_checks : null; return <span key={day} title={`${formatDate(day)}: ${ratio === null ? 'No data' : `${Math.round(ratio * 100)}% uptime`}`} className={`h-3 rounded-sm ${ratio === null ? 'bg-slate-800' : ratio === 1 ? 'bg-emerald-500' : ratio >= 0.95 ? 'bg-emerald-700' : ratio >= 0.8 ? 'bg-amber-500' : 'bg-rose-500'}`} /> })}</div></div>)}</div>
+}
+
+function formatDate(date: string) {
+  // Keep SSR and browser output identical. Locale-based formatting can differ
+  // in padding and timezone between the Node server and the user's browser.
+  const [year, month, day] = date.split('-')
+  return `${month}/${day}/${year}`
 }
 
 function IncidentList({ incidents, monitorById }: { incidents: Incident[]; monitorById: Map<string, Monitor> }) {

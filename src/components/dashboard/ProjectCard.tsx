@@ -74,7 +74,7 @@ export default function ProjectCard({
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Created {new Date(project.created_at).toLocaleDateString()}
+              Created {formatProjectDate(project.created_at)}
             </p>
           </div>
         </div>
@@ -154,6 +154,12 @@ export default function ProjectCard({
       </div>
     </div>
   )
+}
+
+function formatProjectDate(value: string) {
+  // Avoid locale-dependent SSR/client output such as 27/8 vs 27/08.
+  const [year, month, day] = value.slice(0, 10).split('-')
+  return `${day}/${month}/${year}`
 }
 
 function MonitorRow({
@@ -275,4 +281,3 @@ function MonitorRow({
     </div>
   )
 }
-

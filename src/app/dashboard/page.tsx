@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { signout } from '@/app/auth/signout/actions'
 import { Activity, LogOut } from 'lucide-react'
 import DashboardContent from '@/components/dashboard/DashboardContent'
-import { Check, Incident, Monitor, Project } from '@/types/database'
+import { DailyStat, Incident, Monitor, Project } from '@/types/database'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -39,18 +39,26 @@ export default async function DashboardPage() {
   }
 
   const monitorIds = monitors.map((monitor) => monitor.id)
-  let checks: Check[] = []
+  let dailyStats: DailyStat[] = []
   let incidents: Incident[] = []
 
   if (monitorIds.length > 0) {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const [{ data: checksData }, { data: incidentsData }] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10)
+    const start = new Date(`${today}T00:00:00.000Z`)
+    start.setUTCDate(start.getUTCDate() - 29)
+    const startDate = start.toISOString().slice(0, 10)
+    const yesterday = new Date(`${today}T00:00:00.000Z`)
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+    const yesterdayDate = yesterday.toISOString().slice(0, 10)
+
+    const [{ data: dailyStatsData }, { data: currentStatsData }, { data: incidentsData }] = await Promise.all([
       supabase
-        .from('checks')
+        .from('daily_stats')
         .select('*')
-        .in('monitor_id', monitorIds)
-        .gte('created_at', since)
-        .order('created_at', { ascending: false }),
+        .gte('check_date', startDate)
+        .lte('check_date', yesterdayDate)
+        .order('check_date', { ascending: true }),
+      supabase.rpc('get_current_daily_stats', { p_check_date: today, p_timezone: 'UTC' }),
       supabase
         .from('incidents')
         .select('*')
@@ -59,7 +67,7 @@ export default async function DashboardPage() {
         .limit(8),
     ])
 
-    checks = checksData || []
+    dailyStats = [...(dailyStatsData || []), ...(currentStatsData || [])]
     incidents = incidentsData || []
   }
 
@@ -101,7 +109,7 @@ export default async function DashboardPage() {
         <DashboardContent
           initialProjects={projects}
           initialMonitors={monitors}
-          initialChecks={checks}
+          initialDailyStats={dailyStats}
           initialIncidents={incidents}
           userEmail={user.email || ''}
         />
