@@ -2,8 +2,19 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "UptimeBoard — Modern Uptime Tracker",
-  description: "Zero-config website and API uptime tracking with instant alerts.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  title: {
+    default: "UptimeBoard — Website & API monitoring",
+    template: "%s | UptimeBoard",
+  },
+  description: "Simple, dependable website and API monitoring with clear alerts and uptime history.",
+  keywords: ["uptime monitoring", "website monitor", "API monitoring", "downtime alerts", "status monitoring"],
+  openGraph: {
+    type: "website",
+    siteName: "UptimeBoard",
+    title: "UptimeBoard — Know before your customers do",
+    description: "Simple, dependable website and API monitoring for independent developers and small teams.",
+  },
   icons: {
     icon: "/icon-512.png",
     shortcut: "/icon-512.png",
