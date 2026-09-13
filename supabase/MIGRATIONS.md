@@ -81,6 +81,7 @@ Rollback:
 
 What it does:
 
+- Enables `uuid-ossp` so production matches the development schema and provides `uuid_generate_v4()`.
 - Renames the original table to `checks_legacy_20260905` as a rollback backup.
 - Creates a new `checks` table partitioned by UTC calendar day.
 - Uses `(id, created_at)` as the primary key because partitioned unique constraints must include the partition key.
